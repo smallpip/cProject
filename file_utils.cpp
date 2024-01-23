@@ -7,6 +7,7 @@
 #include "file_utils.h"
 #include <chrono>
 #include <ctime>
+#include <set>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -46,7 +47,7 @@ namespace fs
 		sfs::file_type fileType;
 	};
 
-	inline auto getFileTimeDifference(const sfs::file_time_type &fileTime)
+	inline auto getTimeFromAccessToNow(const sfs::file_time_type &fileTime)
 	{
 
 		sfs::file_time_type currentTime = sfs::file_time_type::clock::now();
@@ -58,9 +59,9 @@ namespace fs
 		return diffInSecondsValue;
 	}
 
-	inline void getAllFiles(const std::string &filePath, std::vector<std::string> &files, sfs::file_status s = sfs::file_status{})
+	inline auto getAllFiles(const std::string &filePath, sfs::file_status s = sfs::file_status{})
 	{
-
+		std::set<std::string> files;
 		if (sfs::status_known(s) ? sfs::exists(s) : sfs::exists(filePath))
 		{
 			std::cout << " exists\n";
@@ -69,16 +70,14 @@ namespace fs
 			for (auto const &dir_entry : sfs::recursive_directory_iterator{filePath})
 			{
 				std::string filename = dir_entry.path().filename().u8string();
-
-				if (sfs::is_regular_file(dir_entry.status()) && filename[0] != '.')
-				{
-					std::string filepath = filePath + "/" + filename;
-					files.push_back(filepath);
-				}
+				std::string filepath = filePath + "/" + filename;
+				files.insert(filepath);
 			}
 		}
-		else
+		else{
 			std::cout << " does not exist\n";
+			}
+		return files;
 	}
 
 	inline auto searchFileInfo(const std::string &filePath)
@@ -101,6 +100,9 @@ namespace fs
 			if (stat(filePath.c_str(), &st) == 0)
 				// fileInfo.lastAccessTime = static_cast<std::time_t>(st.st_atime);
 				fileInfo.lastAccessTime = sfs::file_time_type(std::chrono::seconds(st.st_atime));
+			else{
+				fileInfo.lastAccessTime = sfs::file_time_type::clock::now();
+			}
 		}
 
 		fileInfo.fileSize = sfs::file_size(filePath);
@@ -110,32 +112,35 @@ namespace fs
 		return fileInfo;
 	}
 
-	inline auto operateFile(const FileInfo &fileInfo, const int &DelMaxSize, const long long &DelMaxSecond, const std::string &targetExtension, std::vector<std::string> &filesToDelete, const sfs::file_type &DelfileType = sfs::file_type::regular)
+	inline auto operateFile(const FileInfo &fileInfo, const int &DelMaxSize, const long long &DelMaxSecond, const std::string &targetExtension, std::set<std::string> &filesToDelete, const sfs::file_type &DelfileType = sfs::file_type::regular)
 	{
 		if (fileInfo.fileType == DelfileType && fileInfo.fileExtension == targetExtension)
 		{
-			auto writerTimeDiff = getFileTimeDifference(fileInfo.lastWriterTime);
-			auto accessTimeDiff = getFileTimeDifference(fileInfo.lastAccessTime);
+			auto writerTimeDiff = getTimeFromAccessToNow(fileInfo.lastWriterTime);
+			auto accessTimeDiff = getTimeFromAccessToNow(fileInfo.lastAccessTime);
 
 			// <--- 筛选大文件 --->
-			if (fileInfo.fileSize > DelMaxSize)
-			{
-				std::cout << "Over MaxSzie file: " << fileInfo.filePath << std::endl;
+			if (fileInfo.fileSize > DelMaxSize) {
+				std::cout << "Over MaxSize file: " << fileInfo.filePath << std::endl;
 				std::cout << "file size: " << fileInfo.fileSize << std::endl;
-				filesToDelete.push_back(fileInfo.filePath);
-				
+				filesToDelete.insert(fileInfo.filePath);
+				return; // 使用卫语句，满足条件时立即返回
 			}
+
 			// <--- 筛选很久没使用的文件 --->
-			else if (accessTimeDiff > DelMaxSecond)
-			{
+			if (accessTimeDiff > DelMaxSecond) {
 				std::cout << "Over Maxtime file: " << fileInfo.filePath << std::endl;
 				std::cout << "diff time: " << accessTimeDiff << std::endl;
-				filesToDelete.push_back(fileInfo.filePath);
+				filesToDelete.insert(fileInfo.filePath);
+				return; // 使用卫语句，满足条件时立即返回
 			}
+		}
+		else{
+			return; 
 		}
 	}
 
-	inline auto printAndConfirmFiles(const std::vector<std::string> &filesToDelete)
+	inline auto printAndConfirmFiles(const std::set<std::string> filesToDelete)
 	{
 		std::cout << "The following files will be deleted:" << std::endl;
 
@@ -164,24 +169,29 @@ namespace fs
 		}
 	}
 
+	inline auto getDelteFiles(const std::set<std::string> getFiles,const int &DelMaxSize, const long long &DelMaxSecond, const std::string &targetExtension){
+		std::set<std::string> filesToDelete;
+		for (auto const &dir_file : getFiles)
+		{
+			fs::FileInfo fileinfo = fs::searchFileInfo(dir_file);
+
+			fs::operateFile(fileinfo, DelMaxSize, DelMaxSecond, targetExtension,filesToDelete);
+		}
+		return filesToDelete;
+	}
+
 }
 
 int main()
 {
 	std::string dataDir = "/Users/peng/Cproject/test";
-	long long delSecond = 60 * 60 * 60;
+	long long DelMaxSecond = 60 * 60;
 	std::uintmax_t DelMaxSize = 2;
 	std::string targetExtension = ".txt";
-	std::vector<std::string> files;
-	std::vector<std::string> filesToDelete;
 
-	fs::getAllFiles(dataDir, files);
-	for (auto const &dir_file : files)
-	{
-		fs::FileInfo fileinfo = fs::searchFileInfo(dir_file);
 
-		fs::operateFile(fileinfo, DelMaxSize, delSecond, targetExtension, filesToDelete);
-	}
+	auto getFiles=fs::getAllFiles(dataDir);
+	auto filesToDelete=fs::getDelteFiles(getFiles,DelMaxSize,DelMaxSecond,targetExtension);
 	fs::printAndConfirmFiles(filesToDelete);
 
 	return 0;
