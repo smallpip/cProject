@@ -4,7 +4,7 @@
 #include <sstream>
 #include <vector>
 #include <filesystem>
-#include "file_utils.h"
+// #include "../include/file_utils.h"
 #include <chrono>
 #include <ctime>
 #include <set>
@@ -26,7 +26,7 @@ std::string getOperatingSystem()
 
 namespace fs
 {
-	namespace sfs = std::__fs::filesystem;
+	namespace sfs = std::filesystem;
 	
 	// <--- 转换时间格式（暂未使用） --->
 	template <typename TP>
@@ -182,20 +182,7 @@ namespace fs
 
 }
 
-int main()
-{
-	std::string dataDir = "/Users/peng/Cproject/test";
-	long long DelMaxSecond = 60 * 60;
-	std::uintmax_t DelMaxSize = 2;
-	std::string targetExtension = ".txt";
 
-
-	auto getFiles=fs::getAllFiles(dataDir);
-	auto filesToDelete=fs::getDelteFiles(getFiles,DelMaxSize,DelMaxSecond,targetExtension);
-	fs::printAndConfirmFiles(filesToDelete);
-
-	return 0;
-}
 // #include <io.h> //win
 // void win_getAllFiles(std::string path, std::vector<std::string>& files) {
 //     long hFile = 0;
