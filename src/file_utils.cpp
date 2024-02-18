@@ -173,13 +173,13 @@ namespace fs
 		std::set<std::string> filesToDelete;
 		for (auto const &dir_file : getFiles)
 		{
-			fs::FileInfo fileinfo = fs::searchFileInfo(dir_file);
+			FileInfo fileinfo = fs::searchFileInfo(dir_file);
 
-			fs::operateFile(fileinfo, DelMaxSize, DelMaxSecond, targetExtension,filesToDelete);
+			operateFile(fileinfo, DelMaxSize, DelMaxSecond, targetExtension,filesToDelete);
 		}
 		return filesToDelete;
 	}
-
+// 
 }
 
 

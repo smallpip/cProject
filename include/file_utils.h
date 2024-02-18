@@ -4,7 +4,6 @@
 #include <string>
 #include <set>
 #include <filesystem>
-
 namespace fs
 {
     namespace sfs = std::filesystem;
